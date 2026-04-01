@@ -1,126 +1,898 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OpenHack Comox Valley</title>
-
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      margin: 0;
-      background: #0f172a;
-      color: #e2e8f0;
-      text-align: center;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cyan:    #00CCCC;
+      --magenta: #FF13B8;
+      --yellow:  #FFFF00;
+      --purple:  #2D0060;
+      --dark:    #080020;
+      --pink-hi: #FF6EFF;
+      --text:    #E8E0FF;
+      --glow-c:  0 0 8px #00CCCC, 0 0 20px #00CCCC88;
+      --glow-m:  0 0 8px #FF13B8, 0 0 24px #FF13B888;
     }
 
-    .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 40px 20px;
-    }
-
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 10px;
-    }
-
-    h1 a {
-      color: #7dd3fc;
-      text-decoration: underline;
-    }
-
-    h1 a:hover {
-      color: #bae6fd;
-    }
-
-    .tagline {
-      color: #94a3b8;
-      margin-bottom: 30px;
-    }
-
-    .card {
-      background: #1e293b;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-
-    .card a {
-      color: #7dd3fc;
-      text-decoration: underline;
-    }
-
-    .card a:hover {
-      color: #bae6fd;
-    }
-
-    .cta {
-      display: inline-block;
-      background: #22c55e;
-      color: black;
-      padding: 12px 20px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: bold;
-      margin-top: 20px;
-    }
-
-    iframe {
+    html, body {
       width: 100%;
-      height: 600px;
-      border: none;
-      border-radius: 12px;
+      overflow-x: hidden;
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'Exo 2', sans-serif;
     }
 
-    .slack-cta {
-      display: inline-flex;
+    /* ── WebGL canvas ─────────────────────────── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* ── SVG scene layer (sun + mountains + city) */
+    #scene-svg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ── Scanline overlay ─────────────────────── */
+    #scanlines {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.08) 3px,
+        rgba(0,0,0,0.08) 4px
+      );
+    }
+
+    /* ── Page content ─────────────────────────── */
+    #page {
+      position: relative;
+      z-index: 3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
-      background: #4A154B;
-      color: white;
-      padding: 14px 22px;
-      border-radius: 10px;
+    }
+
+    /* ─── HERO ──────────────────────────────────── */
+    #hero {
+      width: 100%;
+      height: 58vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: clamp(2rem, 10vh, 6rem);
+      padding-bottom: 0;
+    }
+
+    .hero-title {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: clamp(2.2rem, 7vw, 6rem);
+      line-height: 1.0;
+      text-align: center;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      /* Chrome/Safari text gradient */
+      background: linear-gradient(180deg, #FFFFFF 0%, #FF9FFF 30%, #FF13B8 65%, #8800FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 12px #FF13B8AA) drop-shadow(0 0 30px #8800FFAA);
+    }
+
+    .hero-sub {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.4rem, 4.5vw, 3.5rem);
+      letter-spacing: 0.1em;
+      text-align: center;
+      background: linear-gradient(180deg, #AAFFFF 0%, #00CCCC 50%, #0077AA 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 10px #00CCCCBB) drop-shadow(0 0 24px #00CCCC66);
+      margin-top: 0.2em;
+    }
+
+    .hero-tagline {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: clamp(0.75rem, 2vw, 1.05rem);
+      letter-spacing: 0.25em;
+      color: var(--cyan);
+      text-shadow: var(--glow-c);
+      margin-top: 1.2rem;
+      opacity: 0.9;
+    }
+
+    /* ─── CONTENT SECTION ───────────────────────── */
+    #content {
+      width: 100%;
+      max-width: 900px;
+      padding: 0 1.5rem 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Intro blurb */
+    .intro-panel {
+      border: 1px solid var(--cyan);
+      border-radius: 6px;
+      padding: 1.4rem 1.8rem;
+      background: rgba(0, 20, 40, 0.72);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 18px #00CCCC33, inset 0 0 18px #00CCCC11;
+      font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+      line-height: 1.7;
+      text-align: center;
+      color: #D0E8FF;
+    }
+
+    /* Two-column lower panels */
+    .panels-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 600px) {
+      .panels-row { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      border: 1px solid var(--magenta);
+      border-radius: 6px;
+      padding: 1.4rem 1.6rem;
+      background: rgba(30, 0, 50, 0.75);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 18px #FF13B833, inset 0 0 16px #FF13B811;
+    }
+
+    .panel-right {
+      border-color: var(--cyan);
+      box-shadow: 0 0 18px #00CCCC33, inset 0 0 16px #00CCCC11;
+    }
+
+    .panel-heading {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--magenta);
+      text-shadow: var(--glow-m);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,19,184,0.3);
+      padding-bottom: 0.5rem;
+    }
+
+    .slack-link {
+      display: inline-block;
+      color: var(--cyan);
+      text-shadow: var(--glow-c);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.12em;
       text-decoration: none;
-      font-weight: 600;
-      margin-top: 10px;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      border: 1px solid var(--cyan);
+      border-radius: 4px;
+      padding: 0.5rem 1.2rem;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .slack-link:hover {
+      background: rgba(0,204,204,0.15);
+      box-shadow: 0 0 12px #00CCCC66;
     }
 
-    .slack-cta img {
-      width: 20px;
-      height: 20px;
-      filter: brightness(0) invert(1);
+    .panel-right .panel-heading {
+      color: var(--cyan);
+      text-shadow: var(--glow-c);
+      border-bottom-color: rgba(0,204,204,0.3);
     }
 
-    .slack-cta:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    .detail-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
     }
+
+    .detail-list li {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #C8D8F0;
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-start;
+    }
+
+    .detail-list .bullet {
+      color: var(--cyan);
+      font-size: 0.75rem;
+      margin-top: 0.2rem;
+      flex-shrink: 0;
+    }
+
+    /* Schedule box */
+    .schedule-inner {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .schedule-time {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .schedule-time .day-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      color: #8080CC;
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+
+    .venue-block {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      text-align: left;
+    }
+
+    .venue-icon {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .venue-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: var(--glow-c);
+      letter-spacing: 0.06em;
+    }
+
+    .venue-addr {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      color: #8899BB;
+      margin-top: 0.25rem;
+      line-height: 1.4;
+    }
+
+    /* ── Footer bar ──────────────────────────────── */
+    #footer {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-tagline {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      color: var(--cyan);
+      text-shadow: var(--glow-c);
+    }
+
+    .footer-logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: white;
+    }
+
+    .footer-logo span {
+      background: var(--cyan);
+      color: var(--dark);
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: 2px;
+    }
+
+    /* ── Glitch animation on title ─────────────── */
+    @keyframes glitch-x {
+      0%, 95%, 100% { transform: translateX(0); }
+      96% { transform: translateX(-4px); clip-path: inset(30% 0 50% 0); }
+      97% { transform: translateX(4px); clip-path: inset(60% 0 10% 0); }
+      98% { transform: translateX(-2px); }
+    }
+    /* .hero-title { animation: glitch-x 8s infinite; } */
+
+    /* ── Flicker ──────────────────────────────── */
+    @keyframes flicker {
+      0%, 98%, 100% { opacity: 1; }
+      99% { opacity: 0.92; }
+    }
+    .panel { animation: flicker 6s infinite; }
   </style>
 </head>
-
 <body>
-  <div class="container">
-    <h1><a href="https://openhack.github.io" target="_blank" rel="noopener noreferrer">OpenHack</a> Comox Valley</h1>
 
-    <div class="card">
-      <p><strong>📅</strong> Tuesdays - 6:00PM to 8:00PM</p>
-      <p><strong>📍</strong> <a href="https://www.gladstonebrewing.ca" target="_blank" rel="noopener noreferrer">Gladstone Brewing Company</a></p>
-      <p>
-        A casual meetup for coders and tech-curious folks of all levels. <br><br>
-        Bring a laptop, hack on anything. 
-      </p>
+<!-- WebGL canvas -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- SVG layer: sun + mountains + city silhouette -->
+<svg id="scene-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Radial glow for sun -->
+    <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFF700" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FF0080" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Sun gradient (top warm yellow → bottom hot pink) -->
+    <linearGradient id="sunGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FEFF03"/>
+      <stop offset="40%"  stop-color="#FF8800"/>
+      <stop offset="75%"  stop-color="#FF139E"/>
+      <stop offset="100%" stop-color="#8800FF"/>
+    </linearGradient>
+
+    <!-- Clipping path: bottom half of sun (horizon cuts it) -->
+    <clipPath id="sunClip">
+      <rect x="0" y="0" width="1000" height="310"/>
+    </clipPath>
+
+    <!-- Mountain gradient -->
+    <linearGradient id="mtnGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#1A0050"/>
+      <stop offset="100%" stop-color="#08001A"/>
+    </linearGradient>
+
+    <!-- City glow filter -->
+    <filter id="cityGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Neon glow filter for buildings -->
+    <filter id="neonGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feColorMatrix in="blur" type="saturate" values="3" result="saturated"/>
+      <feMerge>
+        <feMergeNode in="saturated"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Sky gradient -->
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#0A0025"/>
+      <stop offset="55%"  stop-color="#1A0045"/>
+      <stop offset="85%"  stop-color="#2A0060"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky background -->
+  <rect width="1000" height="600" fill="url(#skyGrad)"/>
+
+  <!-- Deep space vignette top corners -->
+  <radialGradient id="vignette" cx="50%" cy="0%" r="80%">
+    <stop offset="0%" stop-color="transparent"/>
+    <stop offset="100%" stop-color="#000000" stop-opacity="0.55"/>
+  </radialGradient>
+
+  <!-- Sun glow halo -->
+  <ellipse cx="500" cy="310" rx="200" ry="180" fill="url(#sunGlow)"/>
+
+  <!-- Sun body clipped at horizon -->
+  <circle cx="500" cy="310" r="110" fill="url(#sunGrad)" clip-path="url(#sunClip)"/>
+
+  <!-- Sun horizontal stripe mask (the iconic outrun lines) -->
+  <g clip-path="url(#sunClip)" opacity="0.92">
+    <!-- These lines create the stripe effect on the sun -->
+    <line x1="390" y1="295" x2="610" y2="295" stroke="#0A0025" stroke-width="4"/>
+    <line x1="392" y1="280" x2="608" y2="280" stroke="#0A0025" stroke-width="3.5"/>
+    <line x1="396" y1="267" x2="604" y2="267" stroke="#0A0025" stroke-width="3"/>
+    <line x1="401" y1="256" x2="599" y2="256" stroke="#0A0025" stroke-width="2.5"/>
+    <line x1="407" y1="247" x2="593" y2="247" stroke="#0A0025" stroke-width="2.2"/>
+    <line x1="414" y1="239" x2="586" y2="239" stroke="#0A0025" stroke-width="2"/>
+    <line x1="422" y1="233" x2="578" y2="233" stroke="#0A0025" stroke-width="1.8"/>
+    <line x1="431" y1="228" x2="569" y2="228" stroke="#0A0025" stroke-width="1.5"/>
+    <line x1="441" y1="224" x2="559" y2="224" stroke="#0A0025" stroke-width="1.2"/>
+    <line x1="310" y1="307" x2="690" y2="307" stroke="#0A0025" stroke-width="6"/>
+  </g>
+
+  <!-- Low-poly mountains — left cluster -->
+  <g fill="url(#mtnGrad)" opacity="0.95">
+    <!-- Far left large mountain -->
+    <polygon points="0,310 120,160 220,310"/>
+    <!-- Left mid mountain -->
+    <polygon points="80,310 200,185 310,310"/>
+    <!-- Center-left peak -->
+    <polygon points="160,310 275,155 370,310"/>
+    <!-- Small left peak -->
+    <polygon points="0,310 60,230 140,310"/>
+  </g>
+
+  <!-- Low-poly mountains — right cluster -->
+  <g fill="url(#mtnGrad)" opacity="0.95">
+    <!-- Far right large mountain -->
+    <polygon points="1000,310 880,155 760,310"/>
+    <!-- Right mid mountain -->
+    <polygon points="920,310 800,180 690,310"/>
+    <!-- Center-right peak -->
+    <polygon points="840,310 725,150 630,310"/>
+    <!-- Small right peak -->
+    <polygon points="1000,310 940,225 860,310"/>
+  </g>
+
+  <!-- Mountain edge highlights (neon blue/teal) -->
+  <g stroke="#00CCFF" stroke-width="1" fill="none" opacity="0.6">
+    <polyline points="0,310 120,160 220,310"/>
+    <polyline points="80,310 200,185 310,310"/>
+    <polyline points="160,310 275,155 370,310"/>
+    <polyline points="1000,310 880,155 760,310"/>
+    <polyline points="920,310 800,180 690,310"/>
+    <polyline points="840,310 725,150 630,310"/>
+  </g>
+
+  <!-- Ground plane (horizon line) -->
+  <rect x="0" y="308" width="1000" height="4" fill="#00CCCC" opacity="0.5"/>
+  <rect x="0" y="308" width="1000" height="1" fill="#AAFFFF" opacity="0.8"/>
+
+  <!-- ── City silhouette ── -->
+  <g filter="url(#neonGlow)">
+    <!-- Left bridge truss structure -->
+    <g stroke="#00FFFF" stroke-width="1.2" fill="none" opacity="0.7">
+      <!-- Bridge deck -->
+      <rect x="30" y="272" width="185" height="36" fill="#070015" stroke="#00CCFF" stroke-width="1"/>
+      <!-- Upper chord -->
+      <line x1="30" y1="272" x2="215" y2="272"/>
+      <!-- Verticals -->
+      <line x1="55"  y1="272" x2="55"  y2="250"/>
+      <line x1="80"  y1="272" x2="80"  y2="245"/>
+      <line x1="105" y1="272" x2="105" y2="240"/>
+      <line x1="130" y1="272" x2="130" y2="240"/>
+      <line x1="155" y1="272" x2="155" y2="245"/>
+      <line x1="180" y1="272" x2="180" y2="250"/>
+      <!-- Diagonals -->
+      <line x1="30"  y1="272" x2="55"  y2="250"/>
+      <line x1="55"  y1="250" x2="80"  y2="272"/>
+      <line x1="80"  y1="272" x2="105" y2="240"/>
+      <line x1="105" y1="240" x2="130" y2="272"/>
+      <line x1="130" y1="272" x2="155" y2="245"/>
+      <line x1="155" y1="245" x2="180" y2="272"/>
+      <line x1="180" y1="272" x2="215" y2="250"/>
+      <!-- Top chord -->
+      <polyline points="55,250 80,245 105,240 130,240 155,245 180,250"/>
+    </g>
+
+    <!-- Main building cluster — centre-left -->
+    <g fill="#060012" stroke="#FF13B8" stroke-width="0.8">
+      <!-- Clock tower -->
+      <rect x="420" y="220" width="30" height="90"/>
+      <polygon points="420,220 435,200 450,220"/>
+      <!-- Clock face -->
+      <circle cx="435" cy="240" r="10" fill="#060012" stroke="#FF13B8" stroke-width="1"/>
+      <!-- Spire -->
+      <line x1="435" y1="200" x2="435" y2="185" stroke="#FF6EFF" stroke-width="1.5"/>
+
+      <!-- Left tall building -->
+      <rect x="370" y="245" width="45" height="65"/>
+      <!-- Windows -->
+      <rect x="376" y="252" width="8" height="6" fill="#FF9900" opacity="0.7"/>
+      <rect x="389" y="252" width="8" height="6" fill="#FF9900" opacity="0.5"/>
+      <rect x="402" y="252" width="8" height="6" fill="#00CCFF" opacity="0.7"/>
+      <rect x="376" y="264" width="8" height="6" fill="#FF9900" opacity="0.4"/>
+      <rect x="402" y="264" width="8" height="6" fill="#FF9900" opacity="0.8"/>
+
+      <!-- Adjacent shorter building -->
+      <rect x="455" y="260" width="35" height="50"/>
+      <rect x="461" y="266" width="7" height="5" fill="#00CCFF" opacity="0.8"/>
+      <rect x="474" y="266" width="7" height="5" fill="#00CCFF" opacity="0.5"/>
+      <rect x="461" y="276" width="7" height="5" fill="#FF9900" opacity="0.6"/>
+
+      <!-- Right church/tower -->
+      <rect x="500" y="248" width="25" height="62"/>
+      <polygon points="500,248 512,230 525,248"/>
+      <line x1="512" y1="230" x2="512" y2="218" stroke="#FF6EFF" stroke-width="1.5"/>
+    </g>
+
+    <!-- Right city buildings -->
+    <g fill="#060012" stroke="#00CCFF" stroke-width="0.8">
+      <!-- Long low building -->
+      <rect x="555" y="265" width="80" height="45"/>
+      <rect x="560" y="270" width="8" height="5" fill="#FF9900" opacity="0.7"/>
+      <rect x="573" y="270" width="8" height="5" fill="#FF9900" opacity="0.5"/>
+      <rect x="586" y="270" width="8" height="5" fill="#00CCFF" opacity="0.8"/>
+      <rect x="599" y="270" width="8" height="5" fill="#FF9900" opacity="0.4"/>
+      <rect x="612" y="270" width="8" height="5" fill="#00CCFF" opacity="0.6"/>
+      <rect x="560" y="280" width="8" height="5" fill="#FF9900" opacity="0.9"/>
+      <rect x="612" y="280" width="8" height="5" fill="#FF9900" opacity="0.7"/>
+
+      <!-- Taller right building -->
+      <rect x="640" y="252" width="40" height="58"/>
+      <rect x="646" y="258" width="8" height="6" fill="#00CCFF" opacity="0.8"/>
+      <rect x="660" y="258" width="8" height="6" fill="#FF9900" opacity="0.6"/>
+      <rect x="646" y="269" width="8" height="6" fill="#FF9900" opacity="0.5"/>
+      <rect x="660" y="269" width="8" height="6" fill="#00CCFF" opacity="0.9"/>
+
+      <!-- Small row of shops right -->
+      <rect x="685" y="275" width="130" height="35"/>
+      <rect x="690" y="280" width="12" height="12" fill="none" stroke="#FF9900" stroke-width="0.7" opacity="0.6"/>
+      <rect x="708" y="280" width="12" height="12" fill="none" stroke="#FF9900" stroke-width="0.7" opacity="0.6"/>
+      <rect x="726" y="280" width="12" height="12" fill="none" stroke="#00CCFF" stroke-width="0.7" opacity="0.6"/>
+      <rect x="744" y="280" width="12" height="12" fill="none" stroke="#FF9900" stroke-width="0.7" opacity="0.4"/>
+      <rect x="762" y="280" width="12" height="12" fill="none" stroke="#00CCFF" stroke-width="0.7" opacity="0.7"/>
+      <rect x="790" y="280" width="20" height="30" fill="#060012" stroke="#FF13B8"/>
+    </g>
+
+    <!-- Ground floor / foreground strip -->
+    <rect x="0" y="308" width="1000" height="20" fill="#04000E" opacity="0.95"/>
+  </g>
+
+  <!-- Stars (static dots in SVG) -->
+  <g id="stars" fill="white" opacity="0.85">
+    <circle cx="50"  cy="40"  r="1.2"/>
+    <circle cx="150" cy="20"  r="0.9"/>
+    <circle cx="230" cy="60"  r="1.4"/>
+    <circle cx="310" cy="15"  r="0.8"/>
+    <circle cx="410" cy="50"  r="1.1"/>
+    <circle cx="480" cy="30"  r="0.7"/>
+    <circle cx="560" cy="55"  r="1.3"/>
+    <circle cx="640" cy="25"  r="1.0"/>
+    <circle cx="720" cy="70"  r="0.8"/>
+    <circle cx="800" cy="35"  r="1.2"/>
+    <circle cx="880" cy="55"  r="0.9"/>
+    <circle cx="950" cy="20"  r="1.1"/>
+    <circle cx="100" cy="100" r="0.8"/>
+    <circle cx="200" cy="90"  r="1.0"/>
+    <circle cx="350" cy="80"  r="0.7"/>
+    <circle cx="450" cy="110" r="1.3"/>
+    <circle cx="600" cy="95"  r="0.9"/>
+    <circle cx="750" cy="100" r="1.2"/>
+    <circle cx="850" cy="85"  r="0.8"/>
+    <circle cx="920" cy="120" r="1.0"/>
+    <circle cx="25"  cy="130" r="1.1"/>
+    <circle cx="70"  cy="160" r="0.7"/>
+    <circle cx="175" cy="140" r="0.9"/>
+    <circle cx="270" cy="170" r="1.2"/>
+    <circle cx="390" cy="145" r="0.8"/>
+    <circle cx="520" cy="160" r="1.0"/>
+    <circle cx="670" cy="130" r="0.9"/>
+    <circle cx="775" cy="155" r="1.1"/>
+    <circle cx="900" cy="145" r="0.7"/>
+    <circle cx="970" cy="170" r="1.3"/>
+  </g>
+</svg>
+
+<!-- Scanlines -->
+<div id="scanlines"></div>
+
+<!-- Page content -->
+<div id="page">
+  <section id="hero">
+    <h1 class="hero-title">OpenHack</h1>
+    <h2 class="hero-sub">Comox Valley</h2>
+    <p class="hero-tagline">// WEEKLY PROGRAMMER MEETUP //</p>
+    <a href="https://inviter.co/openhack-cumberland" class="slack-link">Join our Slack</a>
+  </section>
+
+  <section id="content">
+    <!-- Intro -->
+    <div class="intro-panel">
+      OpenHack Comox Valley is a casual meetup for programmers of all experience levels.
+      Whether you're a veteran developer or looking for your first job as a software developer —
+      <strong style="color:#AAFFFF">come join us.</strong>
     </div>
 
-    <div class="card">
-      <h2>Join Us!</h2>
-    
-      <a class="slack-cta" href="https://inviter.co/openhack-cumberland" target="_blank">
-        <img src="https://cdn.jsdelivr.net/npm/simple-icons@11/icons/slack.svg" alt="Slack logo" width="20" height="20" />
-        Join our Slack
-      </a>
+    <!-- Two-panel row -->
+    <div class="panels-row">
+      <!-- Details -->
+      <div class="panel">
+        <div class="panel-heading">&#x2BC0; Details</div>
+        <ul class="detail-list">
+          <li>
+            <span class="bullet">&#x25B8;</span>
+            <span>Bring your laptop — work on anything you want: open-source, closed-source, side-projects, work, play.</span>
+          </li>
+          <li>
+            <span class="bullet">&#x25B8;</span>
+            <span>All experience levels and technologies are welcome.</span>
+          </li>
+          <li>
+            <span class="bullet">&#x25B8;</span>
+            <span>Food and drinks available from the restaurant (not provided).</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Schedule + Venue -->
+      <div class="panel panel-right">
+        <div class="panel-heading">&#x2BC0; We Meet Weekly</div>
+        <div class="schedule-inner">
+          <div class="schedule-time">
+            <span class="day-label">Every</span>
+            Tuesday
+          </div>
+          <div class="schedule-time">
+            <strong style="color:#AAFFFF; font-size:1.1em;">6:00 PM</strong>
+          </div>
+          <div class="venue-block">
+            <svg class="venue-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00CCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <div>
+              <div class="venue-name">At Gladstone</div>
+              <div class="venue-addr">244 4th St, Courtenay<br>BC V9N 1G6</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <footer id="footer">
+    <div class="footer-tagline">Code. Connect. Create.</div>
+    <div class="footer-logo">OPENHACK<span>CV</span></div>
+  </footer>
+</div>
+
+<!-- Three.js WebGL outrun grid -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const canvas = document.getElementById('bg-canvas');
+
+// Config (matching the original outrun-scroller/6 parameters)
+const cfg = {
+  segs: { x: 40, z: 80 },
+  camera: { fov: 60, y: 3 },
+  terrain: {
+    sinFrequency:  { x: Math.random(), z: Math.random() },
+    sinIntensity:  { x: 1.0, z: 1.0 },
+    sinOffset:     { x: Math.random() * Math.PI, z: Math.random() * Math.PI },
+    cosFrequency:  { x: Math.random(), z: Math.random() },
+    cosIntensity:  { x: 1.0, z: 1.0 },
+    cosOffset:     { x: Math.random() * Math.PI, z: Math.random() * Math.PI },
+    valleyFactor:  3 / 40,
+    valleyPower:   2,
+    modFactor:     3 / 40,
+    color:         0x000000,
+    wireColor:     0x00CCCC
+  },
+  starfield: {
+    count:       200,
+    minSpeed:    0.01,
+    speedFactor: 0.05,
+    color:       0xFFFFFF
+  },
+  speed:  0.012,
+};
+
+const xc = cfg.segs.x, zc = cfg.segs.z;
+
+// Helpers
+function getY(x, z) {
+  const t = cfg.terrain;
+  const xSin = Math.sin(x * t.sinFrequency.x + t.sinOffset.x) * t.sinIntensity.x + t.sinIntensity.x;
+  const zSin = Math.sin(z * t.sinFrequency.z + t.sinOffset.z) * t.sinIntensity.z + t.sinIntensity.z;
+  const xCos = Math.cos(x * t.cosFrequency.x + t.cosOffset.x) * t.cosIntensity.x + t.cosIntensity.x;
+  const zCos = Math.cos(z * t.cosFrequency.z + t.cosOffset.z) * t.cosIntensity.z + t.cosIntensity.z;
+  const basis = xSin + zSin + xCos + zCos;
+  const offCenter = Math.abs(x - xc / 2);
+  const valley = Math.pow(offCenter * t.valleyFactor, t.valleyPower);
+  const mod = offCenter > 0 ? (z % offCenter) * t.modFactor : 0;
+  return basis * valley * mod;
+}
+
+// ── Scene ──────────────────────────────────────────
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const aspect   = window.innerWidth / window.innerHeight;
+const camera   = new THREE.PerspectiveCamera(cfg.camera.fov, aspect, 0.1, 1000);
+camera.position.set(0, cfg.camera.y, zc);
+camera.rotation.set(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+// Ambient light (fullbright, original style)
+scene.add(new THREE.AmbientLight(0xFFFFFF, 1));
+
+// ── Terrain mesh ───────────────────────────────────
+const terrainPos = new Float32Array((xc + 1) * (zc + 1) * 3);
+for (let z = 0; z < zc + 1; z++) {
+  for (let x = 0; x < xc + 1; x++) {
+    const i = (z * (xc + 1) + x) * 3;
+    terrainPos[i]     = x;
+    terrainPos[i + 1] = getY(x, z);
+    terrainPos[i + 2] = zc - z;
+  }
+}
+
+const terrainIdx = [];
+for (let z = 0; z < zc; z++) {
+  for (let x = 0; x < xc; x++) {
+    const ni = z * (xc + 1) + x;
+    const fi = (z + 1) * (xc + 1) + x;
+    if (x >= xc / 2) {
+      terrainIdx.push(fi + 1, fi, ni, ni + 1, fi + 1, ni);
+    } else {
+      terrainIdx.push(fi, ni, ni + 1, fi + 1, fi, ni + 1);
+    }
+  }
+}
+
+const terrainGeo = new THREE.BufferGeometry();
+terrainGeo.setAttribute('position', new THREE.BufferAttribute(terrainPos, 3));
+terrainGeo.setIndex(terrainIdx);
+
+const terrainMesh = new THREE.Mesh(
+  terrainGeo,
+  new THREE.MeshBasicMaterial({ color: cfg.terrain.color })
+);
+terrainMesh.position.x = -xc / 2;
+scene.add(terrainMesh);
+
+// ── Wireframe ─────────────────────────────────────
+const wfMat = new THREE.LineBasicMaterial({ color: cfg.terrain.wireColor });
+const wf = { xLines: [], zLines: [], group: new THREE.Group() };
+
+for (let z = 0; z < zc + 1; z++) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((xc + 1) * 3), 3));
+  wf.xLines.push(new THREE.Line(geo, wfMat));
+}
+for (let x = 0; x < xc + 1; x++) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((zc + 1) * 3), 3));
+  wf.zLines.push(new THREE.Line(geo, wfMat));
+}
+
+for (let z = 0; z < zc + 1; z++) {
+  for (let x = 0; x < xc + 1; x++) {
+    const xPos = wf.xLines[z].geometry.getAttribute('position');
+    const zPos = wf.zLines[x].geometry.getAttribute('position');
+    const y = getY(x, z);
+    zPos.array[z * 3]     = x;
+    zPos.array[z * 3 + 1] = y;
+    zPos.array[z * 3 + 2] = zc - z;
+    xPos.array[x * 3]     = x;
+    xPos.array[x * 3 + 1] = y;
+    xPos.array[x * 3 + 2] = zc - z;
+  }
+}
+
+wf.group.add(...wf.xLines, ...wf.zLines);
+wf.group.position.x = -xc / 2;
+wf.group.position.y = 0.01;
+scene.add(wf.group);
+
+// ── Stars ──────────────────────────────────────────
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(
+  new Float32Array([0,0,0, 0,0,2]), 3
+));
+const starMat = new THREE.LineBasicMaterial({ color: 0xFFFFFF });
+
+const stars = [];
+function configStar(s) {
+  const r     = xc + xc * Math.random() / 2;
+  const angle = Math.random() * Math.PI / 2;
+  s.line.position.x = r * Math.cos(angle) * (Math.random() > 0.5 ? 1 : -1);
+  s.line.position.y = r * Math.sin(angle);
+  s.line.position.z = -zc * 2;
+  s.speed = Math.max(cfg.starfield.minSpeed, Math.random() * cfg.starfield.speedFactor);
+}
+for (let i = 0; i < cfg.starfield.count; i++) {
+  const s = { line: new THREE.Line(starGeo, starMat) };
+  configStar(s);
+  s.line.position.z = -zc * 2 + Math.random() * (zc - (-zc * 2));
+  stars.push(s);
+  scene.add(s.line);
+}
+
+// ── Animation loop ─────────────────────────────────
+let lastTime = Date.now();
+let zCount   = zc;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const now   = Date.now();
+  const since = Math.min(now - lastTime, 50);
+
+  // Stars
+  for (const s of stars) {
+    s.line.position.z += since * s.speed;
+    if (s.line.position.z >= zc) configStar(s);
+  }
+
+  // Terrain mesh
+  terrainMesh.position.z += since * cfg.speed;
+  if (terrainMesh.position.z >= 1) {
+    terrainMesh.position.z = 0;
+    const pos  = terrainMesh.geometry.getAttribute('position');
+    const arr  = pos.array;
+    const shift = (xc + 1) * 3;
+    for (let i = shift + 1; i < arr.length; i += 3) arr[i - shift] = arr[i];
+    for (let x = 0; x < xc + 1; x++) arr[arr.length - shift + x * 3 + 1] = getY(x, zCount);
+    pos.needsUpdate = true;
+  }
+
+  // Wireframe
+  wf.group.position.z += since * cfg.speed;
+  if (wf.group.position.z >= 1) {
+    wf.group.position.z = 0;
+    // shift x-lines
+    for (let z = 0; z < zc; z++) {
+      const cur  = wf.xLines[z].geometry.getAttribute('position');
+      const next = wf.xLines[z + 1].geometry.getAttribute('position');
+      for (let x = 0; x < xc + 1; x++) cur.array[x * 3 + 1] = next.array[x * 3 + 1];
+      cur.needsUpdate = true;
+    }
+    const last = wf.xLines[wf.xLines.length - 1].geometry.getAttribute('position');
+    for (let x = 0; x < xc + 1; x++) last.array[x * 3 + 1] = getY(x, zCount);
+    last.needsUpdate = true;
+    // shift z-lines
+    for (let x = 0; x < xc + 1; x++) {
+      const zPos = wf.zLines[x].geometry.getAttribute('position');
+      for (let z = 0; z < zc; z++) zPos.array[z * 3 + 1] = zPos.array[(z + 1) * 3 + 1];
+      zPos.array[zc * 3 + 1] = getY(x, zCount);
+      zPos.needsUpdate = true;
+    }
+    zCount++;
+  }
+
+  lastTime = now;
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── Resize ──────────────────────────────────────────
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+</script>
 </body>
 </html>
